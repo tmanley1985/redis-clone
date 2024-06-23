@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"log/slog"
 	"net"
 )
@@ -13,7 +14,35 @@ type Config struct {
 
 type Server struct {
 	Config
-	ln net.Listener
+	peers 			map[*Peer]bool
+	ln 				net.Listener
+	addPeerCh 		chan *Peer
+	quitCh 			chan struct{}
+}
+
+func NewServer(cfg Config) *Server {
+
+	if len(cfg.ListenAddress) == 0 {
+		cfg.ListenAddress = defaultListenAddress
+	}
+
+	return &Server{
+		Config: cfg,
+		peers: make(map[*Peer]bool),
+		addPeerCh: make(chan *Peer),
+		quitCh: make(chan struct{}),
+	}
+}
+
+func (s *Server) loop() {
+	for {
+		select {
+		case <- s.quitCh:
+			return
+		case peer := <-s.addPeerCh:
+			s.peers[peer] = true
+		}
+	}
 }
 
 func (s *Server) Start() error {
@@ -25,8 +54,10 @@ func (s *Server) Start() error {
 
 	s.ln = ln
 
-	return s.acceptLoop()
+	go s.loop()
 
+	slog.Info("server running on", "listenAddr: ", defaultListenAddress)
+	return s.acceptLoop()
 }
 
 func (s *Server) acceptLoop() error {
@@ -42,23 +73,20 @@ func (s *Server) acceptLoop() error {
 
 		s.handleConn(conn)
 	}
+
 }
 
 func (s *Server) handleConn(conn net.Conn) {
-	for {
 
-	}
-}
+	peer := NewPeer(conn)
 
-func NewServer(cfg Config) *Server {
+	s.addPeerCh <- peer
 
-	if len(cfg.ListenAddress) == 0 {
-		cfg.ListenAddress = defaultListenAddress
-	}
+	go peer.readLoop()
 
-	return &Server{Config: cfg}
 }
 
 func main() {
-
+	server := NewServer(Config{})
+	log.Fatal(server.Start())
 }

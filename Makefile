@@ -1,2 +1,4 @@
-run:
-	@go run main.go
+run: build
+	@./bin/goredis
+build:
+	@go build -o bin/goredis .
