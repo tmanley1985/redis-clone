@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"net"
@@ -38,9 +39,18 @@ func NewServer(cfg Config) *Server {
 	}
 }
 
+func (s *Server) handleRawMsg(rawMsg []byte) error {
+	fmt.Println(rawMsg)
+	return nil
+}
+
 func (s *Server) loop() {
 	for {
 		select {
+		case rawMsg := <-s.msgChan:
+			if err := s.handleRawMsg(rawMsg); err != nil {
+				slog.Error("raw message error", "error", err)
+			}
 		case <- s.quitCh:
 			return
 		case peer := <-s.addPeerCh:
@@ -82,7 +92,7 @@ func (s *Server) acceptLoop() error {
 
 func (s *Server) handleConn(conn net.Conn) {
 
-	peer := NewPeer(conn)
+	peer := NewPeer(conn, s.msgChan)
 
 	s.addPeerCh <- peer
 
