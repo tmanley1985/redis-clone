@@ -6,7 +6,6 @@ import (
 	"net"
 )
 
-
 const defaultListenAddress = ":5001"
 
 type Config struct {
@@ -15,14 +14,15 @@ type Config struct {
 
 type Server struct {
 	Config
-	peers 			map[*Peer]bool
-	ln 				net.Listener
-	addPeerCh 		chan *Peer
-	quitCh 			chan struct{}
-	msgChan			chan []byte
+	peers     map[*Peer]bool
+	ln        net.Listener
+	addPeerCh chan *Peer
+	quitCh    chan struct{}
+	msgChan   chan []byte
+	ds        *DataStore
 }
 
-func NewServer(cfg Config) *Server {
+func NewServer(cfg Config, ds *DataStore) *Server {
 
 	if len(cfg.ListenAddress) == 0 {
 		cfg.ListenAddress = defaultListenAddress
@@ -30,12 +30,13 @@ func NewServer(cfg Config) *Server {
 
 	return &Server{
 		Config: cfg,
-		peers: make(map[*Peer]bool),
+		peers:  make(map[*Peer]bool),
+		ds:     ds,
 
 		// Channels
 		addPeerCh: make(chan *Peer),
-		quitCh: make(chan struct{}),
-		msgChan: make(chan []byte),
+		quitCh:    make(chan struct{}),
+		msgChan:   make(chan []byte),
 	}
 }
 
@@ -51,7 +52,7 @@ func (s *Server) loop() {
 			if err := s.handleRawMsg(rawMsg); err != nil {
 				slog.Error("raw message error", "error", err)
 			}
-		case <- s.quitCh:
+		case <-s.quitCh:
 			return
 		case peer := <-s.addPeerCh:
 			s.peers[peer] = true
@@ -92,13 +93,11 @@ func (s *Server) acceptLoop() error {
 
 func (s *Server) handleConn(conn net.Conn) {
 
-	peer := NewPeer(conn, s.msgChan)
+	peer := NewPeer(conn, s.msgChan, s.ds)
 
 	s.addPeerCh <- peer
 
 	slog.Info("Peer connected", "remoteAddr", peer.conn.RemoteAddr())
-	if err := peer.readLoop(); err != nil {
-		slog.Error("Peer read error", "err", err)
-	}
+	go peer.Handle()
 
 }

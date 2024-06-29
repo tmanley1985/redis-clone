@@ -19,12 +19,12 @@ func TestParseCommand(t *testing.T) {
 			want:    &SetCommand{key: "mykey", val: "Hello"},
 			wantErr: false,
 		},
-		// { TODO
-		// 	name:    "valid GET command",
-		// 	input:   "*2\r\n$3\r\nGET\r\n$5\r\nmykey\r\n",
-		// 	want:    &GetCommand{key: "mykey"},
-		// 	wantErr: false,
-		// },
+		{
+			name:    "valid GET command",
+			input:   "*2\r\n$3\r\nGET\r\n$5\r\nmykey\r\n",
+			want:    &GetCommand{key: "mykey"},
+			wantErr: false,
+		},
 		{
 			name:    "invalid command",
 			input:   "*1\r\n$7\r\nINVALID\r\n",

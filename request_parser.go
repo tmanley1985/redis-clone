@@ -50,12 +50,11 @@ func ParseCommand(r io.Reader) (RequestCommand, error) {
 			return nil, errors.New("SET command requires 2 arguments")
 		}
 		return NewSetCommand(elements[1], elements[2]), nil
-	// case "GET":
-	// TODO:
-	// 	if len(elements) != 2 {
-	// 		return nil, errors.New("GET command requires 1 argument")
-	// 	}
-	// 	return NewGetCommand(elements[1]), nil
+	case "GET":
+		if len(elements) != 2 {
+			return nil, errors.New("GET command requires 1 argument")
+		}
+		return NewGetCommand(elements[1]), nil
 	default:
 		return nil, errors.New("unknown command")
 	}
@@ -109,8 +108,7 @@ type RequestCommand interface {
 	// Args returns the arguments of the command
 	Args() []string
 
-	// // String returns a string representation of the command
-	// String() string
+	Execute(ds *DataStore, responseChannel chan ClientResponse)
 }
 
 type SetCommand struct {
@@ -125,18 +123,38 @@ func (c SetCommand) Args() []string {
 	return []string{c.key, c.val}
 }
 
-func (c *SetCommand) Execute() ResponseCommand {
-	// I still need to set the command in storage and possibly append-only log it to disk
-	// and all that jazz but I ain't that good just yet. Baby steps.
-	//
-	// Also, I think I may have to put this command on a channel instead of returning it.
-	// Not sure what I want to do here, I'd like to keep this function pure.
-	return NewSimpleStringResponse("OK")
+func (c *SetCommand) Execute(ds *DataStore, responseChannel chan ClientResponse) {
+	// The data store will be responsible for handling all of it's operations and it will send a message to the response channel
+	// so it's doing it's own thing over there. This is a good way to think about goroutines, they're just little dudes doing their own
+	// thing.
+	ds.Set(c.key, c.val, responseChannel)
 }
 
 func NewSetCommand(key, val string) *SetCommand {
 	return &SetCommand{
 		key: key,
 		val: val,
+	}
+}
+
+type GetCommand struct {
+	key string
+}
+
+func (c GetCommand) Type() string {
+	return "GET"
+}
+
+func (c GetCommand) Args() []string {
+	return []string{c.key}
+}
+
+func (c *GetCommand) Execute(ds *DataStore, responseChannel chan ClientResponse) {
+	ds.Get(c.key, responseChannel)
+}
+
+func NewGetCommand(key string) *GetCommand {
+	return &GetCommand{
+		key: key,
 	}
 }

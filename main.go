@@ -5,6 +5,12 @@ import (
 )
 
 func main() {
-	server := NewServer(Config{})
+	dataStore, err := NewDataStore(DataStoreConfig{})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	server := NewServer(Config{}, dataStore)
 	log.Fatal(server.Start())
 }
