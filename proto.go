@@ -1,18 +1,12 @@
 package main
 
-import "fmt"
+const (
+	CommandSet = "SET"
+)
 
-type Command struct {
+type Command interface {
 }
 
-func parseCommand(msg string) (Command, error) {
-	t := msg[0]
-
-	fmt.Println(t)
-
-	switch t {
-	case '*':
-		fmt.Println(msg[1:])
-	}
-	return Command{}, nil
+type SetCommand struct {
+	key, val string
 }
