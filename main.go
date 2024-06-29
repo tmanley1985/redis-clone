@@ -5,6 +5,7 @@ import (
 )
 
 func main() {
+
 	dataStore, err := NewDataStore(DataStoreConfig{})
 
 	if err != nil {

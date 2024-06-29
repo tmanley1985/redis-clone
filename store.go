@@ -1,7 +1,5 @@
 package main
 
-import "errors"
-
 // TODO: I need to separate these out into their own packages.
 
 type DataStoreInterface interface {
@@ -9,20 +7,15 @@ type DataStoreInterface interface {
 	Set(key, value string) error
 }
 
-type ClientResponse struct {
-	Value interface{}
-	Err   error
-}
-
 type GetOperation struct {
-	Key      string
-	Response chan ClientResponse
+	Key          string
+	ResponseChan chan ClientResponse
 }
 
 type SetOperation struct {
-	Key      string
-	Value    string
-	Response chan ClientResponse
+	Key          string
+	Value        string
+	ResponseChan chan ClientResponse
 }
 
 type DataStore struct {
@@ -68,15 +61,15 @@ func (ds *DataStore) run() {
 		case getOp := <-ds.getChan:
 			value, exists := ds.data[getOp.Key]
 			if exists {
-				getOp.Response <- ClientResponse{Value: value}
+				getOp.ResponseChan <- NewSimpleStringResponse(value) // TODO: need to implement this as an actual GET response.
 			} else {
-				getOp.Response <- ClientResponse{Err: errors.New("key not found")}
+				getOp.ResponseChan <- NewSimpleStringResponse("ERROR") // TODO: implement an error type.
 			}
 		case setOp := <-ds.setChan:
 			ds.data[setOp.Key] = setOp.Value
-			setOp.Response <- ClientResponse{Value: "OK"}
+			setOp.ResponseChan <- NewSimpleStringResponse("OK")
 		case <-ds.shutdown:
-			// Perform any cleanup here
+			// TODO: Need to do some cleanup here. Haven't thought that far yet.
 			return
 		}
 	}
@@ -87,9 +80,9 @@ func (ds *DataStore) Shutdown() {
 }
 
 func (ds *DataStore) Get(key string, responseChan chan ClientResponse) {
-	ds.getChan <- GetOperation{Key: key, Response: responseChan}
+	ds.getChan <- GetOperation{Key: key, ResponseChan: responseChan}
 }
 
 func (ds *DataStore) Set(key, value string, responseChan chan ClientResponse) {
-	ds.setChan <- SetOperation{Key: key, Value: value, Response: responseChan}
+	ds.setChan <- SetOperation{Key: key, Value: value, ResponseChan: responseChan}
 }

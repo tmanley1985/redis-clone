@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"log/slog"
 	"strconv"
 	"strings"
 )
@@ -17,15 +18,18 @@ func ParseCommand(r io.Reader) (RequestCommand, error) {
 
 	// Read the first byte
 	firstByte, err := reader.ReadByte()
+	slog.Info("First byte" + string(firstByte))
 	if err != nil {
 		return nil, err
 	}
 
 	// Example: *3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$5\r\nHello\r\n
 	if firstByte != '*' {
+		slog.Info("Got here")
 		return nil, errors.New("invalid RESP: expected array")
 	}
 
+	slog.Info("Got here now boah")
 	// All redis requests (this is a useful lie) are sent as arrays where each item is a bulk string.
 	// So we need to see what the length of the array is here.
 	numElements, err := readInteger(reader)
@@ -33,6 +37,7 @@ func ParseCommand(r io.Reader) (RequestCommand, error) {
 		return nil, err
 	}
 
+	slog.Info("About to read this bulk ass string")
 	// Read each element
 	elements := make([]string, numElements)
 	for i := 0; i < numElements; i++ {
@@ -43,12 +48,14 @@ func ParseCommand(r io.Reader) (RequestCommand, error) {
 		elements[i] = element
 	}
 
+	slog.Info("About to parse")
 	// Parse the command based on the elements
 	switch strings.ToUpper(elements[0]) {
 	case "SET":
 		if len(elements) != 3 {
 			return nil, errors.New("SET command requires 2 arguments")
 		}
+		slog.Info("We have a set command here")
 		return NewSetCommand(elements[1], elements[2]), nil
 	case "GET":
 		if len(elements) != 2 {

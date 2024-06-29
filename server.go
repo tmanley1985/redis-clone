@@ -18,7 +18,6 @@ type Server struct {
 	ln        net.Listener
 	addPeerCh chan *Peer
 	quitCh    chan struct{}
-	msgChan   chan []byte
 	ds        *DataStore
 }
 
@@ -36,7 +35,6 @@ func NewServer(cfg Config, ds *DataStore) *Server {
 		// Channels
 		addPeerCh: make(chan *Peer),
 		quitCh:    make(chan struct{}),
-		msgChan:   make(chan []byte),
 	}
 }
 
@@ -48,10 +46,6 @@ func (s *Server) handleRawMsg(rawMsg []byte) error {
 func (s *Server) loop() {
 	for {
 		select {
-		case rawMsg := <-s.msgChan:
-			if err := s.handleRawMsg(rawMsg); err != nil {
-				slog.Error("raw message error", "error", err)
-			}
 		case <-s.quitCh:
 			return
 		case peer := <-s.addPeerCh:
@@ -82,7 +76,7 @@ func (s *Server) acceptLoop() error {
 		conn, err := s.ln.Accept()
 
 		if err != nil {
-			slog.Error("accept error: ", err)
+			slog.Error("accept error: ", "err", err)
 			continue
 		}
 
@@ -92,12 +86,22 @@ func (s *Server) acceptLoop() error {
 }
 
 func (s *Server) handleConn(conn net.Conn) {
-
-	peer := NewPeer(conn, s.msgChan, s.ds)
-
+	peer := NewPeer(conn, s.ds)
 	s.addPeerCh <- peer
 
 	slog.Info("Peer connected", "remoteAddr", peer.conn.RemoteAddr())
-	go peer.Handle()
 
+	go func() {
+		defer func() {
+			// TODO: We don't have this just yet but I wanted to remember to do it.
+			// s.removePeerCh <- peer
+			conn.Close()
+			slog.Info("Peer disconnected", "remoteAddr", peer.conn.RemoteAddr())
+		}()
+
+		err := peer.Handle()
+		if err != nil {
+			slog.Error("Peer handle error", "remoteAddr", peer.conn.RemoteAddr(), "error", err)
+		}
+	}()
 }
